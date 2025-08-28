@@ -24,8 +24,14 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    bat "\"${env.PYTHON}\" -m pytest || echo \"No tests yet\""
+                script {
+                    // Run pytest, ignore exit code if no tests
+                    def result = bat(script: "\"${env.PYTHON}\" -m pytest", returnStatus: true)
+                    if (result == 5) {
+                        echo "No tests found. Skipping test failures."
+                    } else if (result != 0) {
+                        error "Tests failed with exit code ${result}"
+                    }
                 }
             }
         }
@@ -33,15 +39,16 @@ pipeline {
         stage('Set Minikube Docker Env') {
             steps {
                 powershell """
-                # Get Docker environment from Minikube
-                \$envOutput = minikube -p minikube docker-env --shell powershell | Out-String
-
-                # Only execute if the output contains 'DOCKER_HOST'
-                if (\$envOutput -match 'DOCKER_HOST') {
-                    Invoke-Expression \$envOutput
-                    Write-Host "Minikube Docker environment set!"
-                } else {
-                    Write-Warning "Minikube Docker environment not available. Skipping."
+                try {
+                    \$envOutput = minikube -p minikube docker-env --shell powershell | Out-String
+                    if (\$envOutput -match 'DOCKER_HOST') {
+                        Invoke-Expression \$envOutput
+                        Write-Host "Minikube Docker environment set!"
+                    } else {
+                        Write-Warning "Minikube Docker environment not available. Using default Docker."
+                    }
+                } catch {
+                    Write-Warning "Minikube not found or not running. Using default Docker."
                 }
                 """
             }
