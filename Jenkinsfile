@@ -17,15 +17,19 @@ pipeline {
             }
         }
 
-       stage('Test') {
-          steps {
-            bat '''
-            "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pip install pytest || echo "pytest already installed"
-            "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pytest || echo "No tests yet"
-            '''
+        stage('Test') {
+            steps {
+                bat '''
+                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pytest
+                if %ERRORLEVEL%==5 (
+                    echo "No tests found, skipping..."
+                    exit 0
+                ) else (
+                    exit %ERRORLEVEL%
+                )
+                '''
+            }
         }
-}
-
 
         stage('Docker Build') {
             steps {
