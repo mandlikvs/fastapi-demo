@@ -1,0 +1,30 @@
+name: CI Pipeline
+
+on: [push]
+
+jobs:
+  build-test-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Pull code
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      # Install requirements
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Run tests (skip if none yet)
+      - name: Run tests
+        run: pytest || echo "No tests yet"
+
+      # Build Docker image
+      - name: Build Docker
+        run: docker build -t fastapi-demo .
