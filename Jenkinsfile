@@ -20,9 +20,12 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                bat '%PYTHON% -m pytest || echo "No tests yet"'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    bat '%PYTHON% -m pytest'
+                }
             }
-        }
+}
+
 
         stage('Docker Build') {
             steps {
