@@ -11,8 +11,8 @@ pipeline {
         stage('Install') {
             steps {
                 bat '''
-                python -m pip install --upgrade pip
-                python -m pip install -r requirements.txt
+                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pip install --upgrade pip
+                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pip install -r requirements.txt
                 '''
             }
         }
@@ -20,7 +20,7 @@ pipeline {
         stage('Test') {
             steps {
                 bat '''
-                pytest || echo "No tests yet"
+                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pytest || echo "No tests yet"
                 '''
             }
         }
