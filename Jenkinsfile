@@ -9,7 +9,7 @@ pipeline {
         }
         stage('Install') {
             steps {
-                bat 'pip install -r requirements.txt'
+                bat 'C:\\Python311\\Scripts\\pip install -r requirements.txt'
             }
         }
         stage('Test') {
