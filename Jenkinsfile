@@ -2,35 +2,37 @@ pipeline {
     agent any
 
     environment {
-        // Point Docker to Minikube
-        DOCKER_TLS_VERIFY = "1"
-        DOCKER_HOST = "tcp://127.0.0.1:50152"
-        DOCKER_CERT_PATH = "C:\\Users\\mandl\\.minikube\\certs"
-        MINIKUBE_ACTIVE_DOCKERD = "minikube"
-
-        // Python executable
-        PYTHON = "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
+        // Minikube Docker environment
+        MINIKUBE_PROFILE = 'minikube'
+        PYTHON = 'C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                git url: 'https://github.com/mandlikvs/fastapi-demo.git', branch: 'main'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                bat "\"${env.PYTHON}\" -m pip install --upgrade pip"
-                bat "\"${env.PYTHON}\" -m pip install -r requirements.txt"
+                bat "${env.PYTHON} -m pip install --upgrade pip"
+                bat "${env.PYTHON} -m pip install -r requirements.txt"
             }
         }
 
         stage('Run Tests') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    bat "\"${env.PYTHON}\" -m pytest || echo \"No tests yet\""
+                    bat "${env.PYTHON} -m pytest || echo \"No tests yet\""
                 }
+            }
+        }
+
+        stage('Set Minikube Docker') {
+            steps {
+                bat "& minikube -p ${env.MINIKUBE_PROFILE} docker-env --shell powershell | Invoke-Expression"
+                bat 'docker info' // verify connection
             }
         }
 
@@ -45,10 +47,24 @@ pipeline {
         stage('Deploy to K8s') {
             steps {
                 dir("${env.WORKSPACE}") {
-                    bat 'kubectl apply -f k8s-deploy.yml'
+                    // Switch kubectl context to Minikube
+                    bat "& minikube -p ${env.MINIKUBE_PROFILE} update-context"
+                    bat 'kubectl config use-context minikube'
+                    // Apply deployment (skip validation if needed)
+                    bat 'kubectl apply -f k8s-deploy.yml --validate=false'
+                    // Wait for rollout
                     bat 'kubectl rollout status deployment/fastapi-demo'
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs!'
         }
     }
 }
