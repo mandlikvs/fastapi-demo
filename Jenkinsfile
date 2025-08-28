@@ -1,8 +1,8 @@
 pipeline {
     agent any
     environment {
-        // Use Minikube Docker daemon
         DOCKER_HOST = "tcp://127.0.0.1:2375"
+        PYTHON = "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
     }
     stages {
         stage('Checkout SCM') {
@@ -13,14 +13,14 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                bat 'py -3 -m pip install --upgrade pip'
-                bat 'py -3 -m pip install -r requirements.txt'
+                bat '%PYTHON% -m pip install --upgrade pip'
+                bat '%PYTHON% -m pip install -r requirements.txt'
             }
         }
 
         stage('Run Tests') {
             steps {
-                bat 'py -3 -m pytest || echo "No tests yet"'
+                bat '%PYTHON% -m pytest || echo "No tests yet"'
             }
         }
 
@@ -32,12 +32,9 @@ pipeline {
 
         stage('Deploy to K8s') {
             steps {
-                // Apply deployment
                 bat 'kubectl apply -f k8s-deploy.yml'
-
-                // Optional: wait until pod is ready
                 bat 'kubectl rollout status deployment/fastapi-demo'
             }
         }
     }
-}  // <-- closing brace for the pipeline
+}
