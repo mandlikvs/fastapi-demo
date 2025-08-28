@@ -2,82 +2,69 @@ pipeline {
     agent any
 
     environment {
-        PYTHON_PATH = "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
-        DOCKER_IMAGE = "fastapi-demo:latest"
-        K8S_DEPLOYMENT = "fastapi-demo-deployment"
-        K8S_NAMESPACE = "default"
+        // Set your kubeconfig path here
+        KUBECONFIG = 'C:\\Users\\mandl\\.kube\\config'
+        PYTHON_PATH = 'C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
     }
 
     stages {
 
         stage('Checkout SCM') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/mandlikvs/fastapi-demo.git'
+                git url: 'https://github.com/mandlikvs/fastapi-demo.git', branch: 'main'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                bat "${env.PYTHON_PATH} -m pip install --upgrade pip"
-                bat "${env.PYTHON_PATH} -m pip install -r requirements.txt"
+                bat "\"${env.PYTHON_PATH}\" -m pip install --upgrade pip"
+                bat "\"${env.PYTHON_PATH}\" -m pip install -r requirements.txt"
             }
         }
 
         stage('Run Tests') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    bat "${env.PYTHON_PATH} -m pytest || echo \"No tests yet\""
+                    bat "\"${env.PYTHON_PATH}\" -m pytest || echo \"No tests yet\""
                 }
             }
         }
 
-        stage('Set Minikube Docker') {
+        stage('Set Minikube Docker Env') {
             steps {
-                powershell '''
-                Write-Host "Setting Minikube Docker environment for Jenkins..."
-                $envVars = minikube -p minikube docker-env --shell powershell
-                Write-Host "Raw minikube docker-env output:"
-                Write-Host $envVars
-
-                $envVars -split "\\r?\\n" | ForEach-Object {
-                    if ($_ -match "set (.+?)=(.+)") {
-                        $name = $matches[1]
-                        $value = $matches[2]
-                        Write-Host "Setting env: $name = $value"
-                        [System.Environment]::SetEnvironmentVariable($name, $value, "Process")
-                    }
-                }
-
-                docker info
-                '''
+                powershell """
+                    # Point Jenkins to Minikube Docker daemon
+                    minikube -p minikube docker-env --shell powershell | Invoke-Expression
+                """
             }
         }
 
         stage('Docker Build') {
             steps {
-                bat "docker build -t ${DOCKER_IMAGE} ."
+                bat 'docker build -t fastapi-demo:latest .'
             }
         }
 
-        stage('Deploy to K8s') {
+        stage('Deploy to Kubernetes') {
             steps {
-                bat "kubectl apply -f k8s-deploy.yaml -n ${K8S_NAMESPACE}"
-                bat "kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}"
+                powershell """
+                    # Make sure kubeconfig is set for Jenkins
+                    kubectl config use-context minikube
+                    kubectl apply -f k8s-deploy.yaml -n default
+                """
             }
-}
-
+        }
     }
 
     post {
         always {
-            echo "Pipeline finished. Check the logs for details."
+            echo "Pipeline finished. Check logs for details."
         }
         success {
-            echo "Pipeline succeeded! 🎉"
+            echo "Pipeline succeeded ✅"
         }
         failure {
-            echo "Pipeline failed! ❌"
+            echo "Pipeline failed ❌"
         }
     }
 }
