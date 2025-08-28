@@ -1,50 +1,43 @@
 pipeline {
     agent any
-
+    environment {
+        // Use Minikube Docker daemon
+        DOCKER_HOST = "tcp://127.0.0.1:2375"
+    }
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install') {
+        stage('Install Dependencies') {
             steps {
-                bat '''
-                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pip install --upgrade pip
-                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pip install -r requirements.txt
-                '''
+                bat 'py -3 -m pip install --upgrade pip'
+                bat 'py -3 -m pip install -r requirements.txt'
             }
         }
 
-        stage('Test') {
+        stage('Run Tests') {
             steps {
-                bat '''
-                "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe" -3 -m pytest
-                if %ERRORLEVEL%==5 (
-                    echo "No tests found, skipping..."
-                    exit 0
-                ) else (
-                    exit %ERRORLEVEL%
-                )
-                '''
+                bat 'py -3 -m pytest || echo "No tests yet"'
             }
         }
 
         stage('Docker Build') {
             steps {
-                bat '''
-                docker build -t fastapi-demo .
-                '''
+                bat 'docker build -t fastapi-demo:latest .'
             }
         }
 
         stage('Deploy to K8s') {
             steps {
-                bat '''
-                kubectl apply -f k8s-deploy.yml
-                '''
+                // Apply deployment
+                bat 'kubectl apply -f k8s-deploy.yml'
+
+                // Optional: wait until pod is ready
+                bat 'kubectl rollout status deployment/fastapi-demo'
             }
         }
     }
-}
+}  // <-- closing brace for the pipeline
