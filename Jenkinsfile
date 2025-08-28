@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         PYTHON = 'C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
-        PROJECT_NAME = 'fastapi-demo'
         IMAGE_NAME = 'fastapi-demo:latest'
         K8S_NAMESPACE = 'default'
     }
@@ -25,7 +24,6 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    // Run pytest, ignore exit code if no tests
                     def result = bat(script: "\"${env.PYTHON}\" -m pytest", returnStatus: true)
                     if (result == 5) {
                         echo "No tests found. Skipping test failures."
@@ -38,19 +36,21 @@ pipeline {
 
         stage('Set Minikube Docker Env') {
             steps {
-                powershell """
-                try {
-                    \$envOutput = minikube -p minikube docker-env --shell powershell | Out-String
-                    if (\$envOutput -match 'DOCKER_HOST') {
-                        Invoke-Expression \$envOutput
-                        Write-Host "Minikube Docker environment set!"
-                    } else {
-                        Write-Warning "Minikube Docker environment not available. Using default Docker."
+                script {
+                    try {
+                        powershell """
+                        \$envOutput = minikube -p minikube docker-env --shell powershell | Out-String
+                        if (\$envOutput -match 'DOCKER_HOST') {
+                            Invoke-Expression \$envOutput
+                            Write-Host "Minikube Docker environment set!"
+                        } else {
+                            Write-Warning "Minikube Docker environment not available. Using default Docker."
+                        }
+                        """
+                    } catch (e) {
+                        echo "Minikube not available, skipping. Using default Docker."
                     }
-                } catch {
-                    Write-Warning "Minikube not found or not running. Using default Docker."
                 }
-                """
             }
         }
 
