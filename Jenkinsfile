@@ -65,7 +65,8 @@ pipeline {
                 bat "kubectl apply -f k8s-deploy.yaml -n ${K8S_NAMESPACE}"
                 bat "kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}"
             }
-        }
+}
+
     }
 
     post {
