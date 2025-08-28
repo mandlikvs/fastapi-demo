@@ -2,69 +2,68 @@ pipeline {
     agent any
 
     environment {
-        // Minikube Docker environment
-        MINIKUBE_PROFILE = 'minikube'
-        PYTHON = 'C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
+        PYTHON_PATH = "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                git url: 'https://github.com/mandlikvs/fastapi-demo.git', branch: 'main'
+                git branch: 'main', url: 'https://github.com/mandlikvs/fastapi-demo.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                bat "${env.PYTHON} -m pip install --upgrade pip"
-                bat "${env.PYTHON} -m pip install -r requirements.txt"
+                bat "${env.PYTHON_PATH} -m pip install --upgrade pip"
+                bat "${env.PYTHON_PATH} -m pip install -r requirements.txt"
             }
         }
 
         stage('Run Tests') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    bat "${env.PYTHON} -m pytest || echo \"No tests yet\""
+                    bat "${env.PYTHON_PATH} -m pytest || echo \"No tests yet\""
                 }
             }
         }
 
         stage('Set Minikube Docker') {
             steps {
-                bat "& minikube -p ${env.MINIKUBE_PROFILE} docker-env --shell powershell | Invoke-Expression"
-                bat 'docker info' // verify connection
+                powershell '''
+                Write-Host "Setting Minikube Docker environment..."
+                & minikube -p minikube docker-env --shell powershell | Invoke-Expression
+                docker info
+                '''
             }
         }
 
         stage('Docker Build') {
             steps {
-                dir("${env.WORKSPACE}") {
-                    bat 'docker build -t fastapi-demo:latest .'
-                }
+                powershell '''
+                Write-Host "Building Docker image..."
+                docker build -t fastapi-demo:latest .
+                docker images
+                '''
             }
         }
 
         stage('Deploy to K8s') {
             steps {
-                dir("${env.WORKSPACE}") {
-                    // Switch kubectl context to Minikube
-                    bat "& minikube -p ${env.MINIKUBE_PROFILE} update-context"
-                    bat 'kubectl config use-context minikube'
-                    // Apply deployment (skip validation if needed)
-                    bat 'kubectl apply -f k8s-deploy.yml --validate=false'
-                    // Wait for rollout
-                    bat 'kubectl rollout status deployment/fastapi-demo'
-                }
+                powershell '''
+                Write-Host "Deploying to Kubernetes..."
+                kubectl apply -f k8s-deploy.yml
+                kubectl get pods
+                '''
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo "Pipeline completed successfully!"
         }
         failure {
-            echo 'Pipeline failed. Check logs!'
+            echo "Pipeline failed! Check the logs."
         }
     }
 }
