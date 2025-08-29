@@ -2,86 +2,51 @@ pipeline {
     agent any
 
     environment {
-        PYTHON_PATH = "C:\\Users\\mandl\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
+        // Ensure Jenkins can find kubeconfig
+        KUBECONFIG = "C:\\ProgramData\\Jenkins\\.kube\\config"
+        // Use Docker with Minikube (adjust if needed)
+        DOCKER_HOST = "tcp://127.0.0.1:2375"
     }
 
     stages {
-
         stage('Checkout SCM') {
             steps {
-                // Checkout your repo
-                git url: 'https://github.com/mandlikvs/fastapi-demo.git', branch: 'main'
+                checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                bat "\"${env.PYTHON_PATH}\" -m pip install --upgrade pip"
-                bat "\"${env.PYTHON_PATH}\" -m pip install -r requirements.txt"
+                // Use python.exe directly instead of "py"
+                bat '"C:\\Python313\\python.exe" -m pip install --upgrade pip'
+                bat '"C:\\Python313\\python.exe" -m pip install -r requirements.txt'
             }
         }
 
         stage('Run Tests') {
             steps {
-                script {
-                    try {
-                        bat "\"${env.PYTHON_PATH}\" -m pytest || echo No tests yet"
-                    } catch (err) {
-                        echo "No tests found. Skipping test failures."
-                    }
-                }
-            }
-        }
-
-        stage('Set Minikube Docker Env') {
-            steps {
-                script {
-                    try {
-                        powershell """
-                        \$envOutput = minikube -p minikube docker-env --shell powershell | Out-String
-                        if (\$envOutput -match 'DOCKER_HOST') {
-                            Invoke-Expression \$envOutput
-                            Write-Host "Minikube Docker environment set!"
-                        } else {
-                            Write-Warning "Minikube not available, using default Docker."
-                        }
-                        """
-                    } catch (e) {
-                        echo "Minikube not available, skipping. Using default Docker."
-                    }
-                }
+                bat '"C:\\Python313\\python.exe" -m pytest || echo "No tests yet"'
             }
         }
 
         stage('Docker Build') {
             steps {
-                bat "docker build -t fastapi-demo:latest ."
+                bat 'docker build -t fastapi-demo:latest .'
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('K8s Check') {
             steps {
-                script {
-                    try {
-                        // Skip validation and ignore auth for local testing
-                        bat "kubectl apply --validate=false -f k8s-deploy.yaml -n default"
-                    } catch (err) {
-                        echo "Skipping Kubernetes auth errors for local testing."
-                    }
-                }
+                bat 'kubectl get nodes'
+                bat 'kubectl get pods -A'
             }
         }
-    }
 
-    post {
-        always {
-            echo "Pipeline finished. Check logs for details."
-        }
-        success {
-            echo "Pipeline succeeded ✅"
-        }
-        failure {
-            echo "Pipeline failed ❌"
+        stage('Deploy to K8s') {
+            steps {
+                bat 'kubectl apply -f k8s-deploy.yml'
+                bat 'kubectl rollout status deployment/fastapi-demo'
+            }
         }
     }
 }
